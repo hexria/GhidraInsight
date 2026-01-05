@@ -19,9 +19,9 @@
 ### Backend Enhancements
 - [x] Database backend (PostgreSQL)
 - [x] Analysis caching and incremental updates
-- [ ] Distributed analysis (multi-node)
+- [x] Distributed analysis (multi-node)
 - [x] WebSocket streaming improvements
-- [ ] Advanced error recovery
+- [x] Advanced error recovery
 
 ---
 

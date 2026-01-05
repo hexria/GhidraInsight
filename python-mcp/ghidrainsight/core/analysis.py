@@ -8,6 +8,8 @@ import logging
 
 from ..config import settings
 from .exploit_patterns import exploit_pattern_library
+from .distributed_analysis import distributed_manager
+from .error_recovery import error_recovery_manager
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +20,38 @@ class AnalysisEngine:
     def __init__(self):
         self.executor = ThreadPoolExecutor(max_workers=4)
 
-    async def analyze_binary(self, binary_data: bytes, features: List[str]) -> Dict[str, Any]:
+    async def analyze_binary(self, binary_data: bytes, features: List[str],
+                           use_distributed: bool = False) -> Dict[str, Any]:
         """
-        Analyze binary with parallel processing.
+        Analyze binary with parallel processing or distributed processing and error recovery.
+
+        Args:
+            binary_data: Binary file content
+            features: List of analysis features to run
+            use_distributed: Whether to use distributed analysis
+
+        Returns:
+            Analysis results
+        """
+        async def _analysis_operation():
+            if use_distributed:
+                return await distributed_manager.analyze_distributed(binary_data, features)
+            else:
+                return await self._analyze_parallel(binary_data, features)
+
+        # Execute with error recovery
+        result = await error_recovery_manager.execute_with_recovery(
+            _analysis_operation,
+            f"binary_analysis_{'distributed' if use_distributed else 'parallel'}",
+            binary_data,
+            features
+        )
+
+        return result
+
+    async def _analyze_parallel(self, binary_data: bytes, features: List[str]) -> Dict[str, Any]:
+        """
+        Analyze binary with local parallel processing.
 
         Args:
             binary_data: Binary file content
@@ -29,8 +60,6 @@ class AnalysisEngine:
         Returns:
             Analysis results
         """
-        logger.info(f"Starting parallel analysis for {len(features)} features")
-
         # Calculate binary hash for caching
         binary_hash = hashlib.sha256(binary_data).hexdigest()
 
