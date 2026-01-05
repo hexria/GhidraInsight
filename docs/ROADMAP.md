@@ -30,7 +30,7 @@
 ## Version 1.2 (Q3 2026)
 
 ### LLM Integration
-- [ ] Fine-tuned model for binary analysis
+- [x] Fine-tuned model for binary analysis
 - [ ] Multi-LLM support (Claude, GPT-4, Gemini)
 - [ ] Context optimization for cheaper inference
 - [ ] Function name generation from IL

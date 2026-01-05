@@ -10,6 +10,7 @@ from ..config import settings
 from .exploit_patterns import exploit_pattern_library
 from .distributed_analysis import distributed_manager
 from .error_recovery import error_recovery_manager
+from ..llm_integration import LLMIntegration
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class AnalysisEngine:
 
     def __init__(self):
         self.executor = ThreadPoolExecutor(max_workers=4)
+        self.llm_integration = LLMIntegration(settings)
 
     async def analyze_binary(self, binary_data: bytes, features: List[str],
                            use_distributed: bool = False) -> Dict[str, Any]:
@@ -46,6 +48,10 @@ class AnalysisEngine:
             binary_data,
             features
         )
+
+        # Enhance results with LLM insights if available
+        if self.llm_integration.is_available() and 'llm_enhancement' in features:
+            result = await self._enhance_with_llm(result)
 
         return result
 
@@ -497,6 +503,58 @@ class AnalysisEngine:
             return has_output_indicators
 
         return True  # Default to valid
+
+
+    async def _enhance_with_llm(self, analysis_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Enhance analysis results with LLM insights.
+
+        Args:
+            analysis_result: Base analysis results
+
+        Returns:
+            Enhanced analysis results with AI insights
+        """
+        try:
+            enhanced_result = analysis_result.copy()
+
+            # Enhance function analysis
+            if 'functions' in analysis_result.get('results', {}):
+                functions = analysis_result['results']['functions']
+                if isinstance(functions, list):
+                    enhanced_functions = []
+                    for func in functions:
+                        enhanced_func = await self.llm_integration.enhance_function_analysis(func)
+                        enhanced_functions.append(enhanced_func)
+                    enhanced_result['results']['functions'] = enhanced_functions
+
+            # Enhance vulnerability explanations
+            if 'vulnerabilities' in analysis_result.get('results', {}):
+                vulns = analysis_result['results']['vulnerabilities']
+                if isinstance(vulns, list):
+                    binary_context = {
+                        'type': analysis_result.get('binary_type', 'unknown'),
+                        'architecture': analysis_result.get('architecture', 'unknown'),
+                        'compiler': analysis_result.get('compiler', 'unknown')
+                    }
+                    enhanced_vulns = await self.llm_integration.explain_vulnerabilities(
+                        vulns, binary_context
+                    )
+                    enhanced_result['results']['vulnerabilities'] = enhanced_vulns
+
+            # Add LLM metadata
+            enhanced_result['llm_enhanced'] = True
+            enhanced_result['llm_available'] = self.llm_integration.is_available()
+
+            logger.info("Analysis results enhanced with LLM insights")
+            return enhanced_result
+
+        except Exception as e:
+            logger.error(f"Failed to enhance analysis with LLM: {e}")
+            # Return original result if LLM enhancement fails
+            analysis_result['llm_enhanced'] = False
+            analysis_result['llm_error'] = str(e)
+            return analysis_result
 
 
 # Global analysis engine instance
