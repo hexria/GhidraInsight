@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import hashlib
 import secrets
 import logging
+import hmac
 
 logger = logging.getLogger(__name__)
 
@@ -137,13 +138,14 @@ class AuthManager:
     @staticmethod
     def hash_api_key(api_key: str) -> str:
         """
-        Hash an API key using SHA-256.
+        Hash an API key using PBKDF2-HMAC (SHA-256) with a random salt.
         
         Args:
             api_key: Raw API key
             
         Returns:
-            Hashed key in hex format
+            Encoded hash string containing algorithm, iterations, salt, and derived key
+            in the format: "pbkdf2_sha256$<iterations>$<salt_hex>$<dk_hex>"
             
         Raises:
             ValueError: If API key is empty
@@ -151,16 +153,29 @@ class AuthManager:
         if not api_key or not isinstance(api_key, str):
             raise ValueError("API key must be a non-empty string")
         
-        return hashlib.sha256(api_key.encode()).hexdigest()
+        # Use a reasonable default iteration count for PBKDF2.
+        iterations = 100_000
+        salt = secrets.token_bytes(16)
+        dk = hashlib.pbkdf2_hmac(
+            "sha256",
+            api_key.encode("utf-8"),
+            salt,
+            iterations,
+        )
+        return "pbkdf2_sha256${}${}${}".format(
+            iterations,
+            salt.hex(),
+            dk.hex(),
+        )
     
     @staticmethod
     def verify_api_key(api_key: str, hashed_key: str) -> bool:
         """
-        Verify an API key against its hash.
+        Verify an API key against its stored hash.
         
         Args:
             api_key: Raw API key
-            hashed_key: Previously hashed key
+            hashed_key: Previously hashed key produced by hash_api_key
             
         Returns:
             True if API key matches hash, False otherwise
@@ -169,7 +184,24 @@ class AuthManager:
             return False
         
         try:
-            return AuthManager.hash_api_key(api_key) == hashed_key
+            parts = hashed_key.split("$")
+            if len(parts) != 4 or parts[0] != "pbkdf2_sha256":
+                logger.error("Unsupported API key hash format")
+                return False
+            
+            _, iter_str, salt_hex, dk_hex = parts
+            iterations = int(iter_str)
+            salt = bytes.fromhex(salt_hex)
+            expected_dk = bytes.fromhex(dk_hex)
+            
+            computed_dk = hashlib.pbkdf2_hmac(
+                "sha256",
+                api_key.encode("utf-8"),
+                salt,
+                iterations,
+            )
+            
+            return hmac.compare_digest(computed_dk, expected_dk)
         except Exception as e:
             logger.error(f"API key verification failed: {e}")
             return False
