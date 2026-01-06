@@ -289,7 +289,7 @@ class MCPServer:
             )
             
             # Sanitize results before returning
-            sanitized_results = self._sanitize_analysis_results(results)
+            sanitized_results = self._sanitize_analysis_results_for_display(results)
             
             return {"status": "success", "results": sanitized_results}
             
@@ -318,35 +318,45 @@ class MCPServer:
             b'os.system',  # OS system calls
         ]
         
-        for pattern in suspicious_patterns:
+        for pattern in malware_indicators:
             if pattern in binary_data:
                 return True
         return False
     
-    def _sanitize_analysis_results(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_analysis_results_for_display(self, results: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Sanitize analysis results to remove sensitive information.
+        Prepare analysis results for display (preserve all analysis data).
         
         Args:
             results: Raw analysis results
             
         Returns:
-            Sanitized results
+            Display-ready results (preserves all malware analysis data)
         """
         sanitized = results.copy()
         
-        # Remove potential sensitive data
+        # Only limit for display purposes, don't remove analysis-critical data
         if 'results' in sanitized:
             for feature, result in sanitized['results'].items():
                 if isinstance(result, dict):
-                    # Remove any potential file paths or sensitive strings
+                    # Keep all strings for malware analysis, just limit display length
                     if 'strings' in result:
-                        result['strings'] = [
-                            s for s in result['strings'][:50]  # Limit strings
-                            if len(s) <= 200 and not any(
-                                sensitive in s.lower()
-                                for sensitive in ['password', 'key', 'secret', 'token']
-                            )
-                        ]
+                        strings = result['strings']
+                        if isinstance(strings, list):
+                            # Keep more strings for malware analysis (1000 instead of 50)
+                            result['strings'] = strings[:1000]
+                            # Only truncate very long strings for display
+                            result['strings'] = [
+                                s[:500] + "..." if len(s) > 500 else s 
+                                for s in result['strings']
+                            ]
+                    
+                    # Don't filter any content - malware analysts need all data
+                    # Only limit very long text fields for display
+                    for key, value in result.items():
+                        if isinstance(value, str) and len(value) > 1000:
+                            result[key] = value[:1000] + "..."
+                        elif isinstance(value, list) and value and isinstance(value[0], str):
+                            result[key] = value[:1000]
         
         return sanitized
