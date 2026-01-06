@@ -35,16 +35,16 @@
 - [x] Automatic comment generation
 
 ### Plugins & Extensions
-- [ ] Third-party plugin marketplace
+- [x] Third-party plugin marketplace
 - [x] Plugin development SDK/framework
 - [x] Custom analysis module templates
-- [ ] Community-contributed analyzers
+- [x] Community-contributed analyzers
 
 ### DevOps
 - [x] Kubernetes manifests
 - [x] Helm charts
 - [x] Cloud deployment guides (AWS, GCP, Azure)
-- [ ] Multi-region support
+- [x] Multi-region support
 - [x] Backup & disaster recovery
 
 ---

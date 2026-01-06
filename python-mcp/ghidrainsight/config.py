@@ -80,6 +80,27 @@ class CacheConfig(BaseModel):
     backend: str = "memory"  # memory, redis, or file
 
 
+class RegionConfig(BaseModel):
+    """Multi-region configuration."""
+
+    enabled: bool = False
+    current_region: str = "us-east-1"
+    regions: List[str] = ["us-east-1"]
+    replication_enabled: bool = False
+    replication_regions: List[str] = []
+    cross_region_timeout: int = 30  # seconds
+    failover_enabled: bool = False
+    primary_region: Optional[str] = None
+    
+    @field_validator("current_region", "primary_region")
+    @classmethod
+    def validate_region(cls, v: Optional[str]) -> Optional[str]:
+        """Validate region name format."""
+        if v and not v.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(f"Invalid region format: {v}")
+        return v
+
+
 class Settings(BaseSettings):
     """
     Application settings with environment variable support.
@@ -117,6 +138,9 @@ class Settings(BaseSettings):
 
     # Cache
     cache: CacheConfig = Field(default_factory=CacheConfig)
+
+    # Multi-region
+    region: RegionConfig = Field(default_factory=RegionConfig)
 
     # Optional features
     enable_ui: bool = True
