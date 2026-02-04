@@ -147,10 +147,19 @@ class Settings(BaseSettings):
     enable_ui: bool = True
     enable_metrics: bool = True
 
-    class Config:
-        env_file = ".env"
-        env_nested_delimiter = "__"
-        case_sensitive = False
+    # LLM API Keys
+    google_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    github_token: Optional[str] = None
+
+    model_config = {
+        "env_file": ".env",
+        "env_nested_delimiter": "__",
+        "env_prefix": "GHIDRA_",
+        "case_sensitive": False,
+        "extra": "ignore",
+    }
 
     @field_validator("port", "ws_port", "sse_port")
     @classmethod

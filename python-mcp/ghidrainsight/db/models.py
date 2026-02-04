@@ -59,7 +59,7 @@ class Vulnerability(Base):
     description = Column(Text)
     location = Column(String(20))  # Address or function name
     confidence = Column(Integer)  # 0-100
-    metadata = Column(JSON)  # Additional data
+    extra_data = Column(JSON)  # Additional data (renamed from 'metadata' to avoid SQLAlchemy conflict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

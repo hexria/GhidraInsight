@@ -234,16 +234,24 @@ def server(host: str, port: int, ws_port: int, sse_port: int, config: Optional[s
         logger.info(f"  WebSocket: {host}:{ws_port}")
         logger.info(f"  SSE: {host}:{sse_port}")
         
-        # TODO: Implement actual server startup
-        click.echo(f"✓ GhidraInsight server running on {host}:{port}")
+        # Import and start the actual MCP server
+        import asyncio
+        from ..mcp import MCPServer
         
-        # Keep server running
-        import time
+        mcp_server = MCPServer(
+            host=host,
+            port=port,
+            ws_port=ws_port,
+            sse_port=sse_port
+        )
+        
+        click.echo(f"✓ GhidraInsight server starting on {host}:{port}")
+        
         try:
-            while True:
-                time.sleep(1)
+            asyncio.run(mcp_server.start())
         except KeyboardInterrupt:
             logger.info("Server shutdown requested")
+            asyncio.run(mcp_server.stop())
             click.echo("✓ Server stopped")
     
     except Exception as e:

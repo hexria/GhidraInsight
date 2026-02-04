@@ -13,51 +13,57 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implementation of CryptoDetector with real pattern matching for cryptographic algorithms.
+ * Implementation of CryptoDetector with real pattern matching for cryptographic
+ * algorithms.
  * Detects AES, DES, RSA, and hash functions through constant pattern matching.
  */
 public class CryptoDetectorImpl implements CryptoDetector {
     private static final Logger logger = LoggerFactory.getLogger(CryptoDetectorImpl.class);
     private static final ObjectMapper mapper = new ObjectMapper();
-    
+
     // AES S-box (first 16 bytes are distinctive)
     private static final byte[] AES_SBOX = {
-        (byte) 0x63, (byte) 0x7c, (byte) 0x77, (byte) 0x7b, (byte) 0xf2, (byte) 0x6b, (byte) 0x6f, (byte) 0xc5,
-        (byte) 0x30, (byte) 0x01, (byte) 0x67, (byte) 0x2b, (byte) 0xfe, (byte) 0xd7, (byte) 0xab, (byte) 0x76
+            (byte) 0x63, (byte) 0x7c, (byte) 0x77, (byte) 0x7b, (byte) 0xf2, (byte) 0x6b, (byte) 0x6f, (byte) 0xc5,
+            (byte) 0x30, (byte) 0x01, (byte) 0x67, (byte) 0x2b, (byte) 0xfe, (byte) 0xd7, (byte) 0xab, (byte) 0x76
     };
-    
+
+    // AES key schedule marker (RCON values or similar)
+    private static final byte[] AES_KEY_SCHEDULE_MARKER = {
+            (byte) 0x01, (byte) 0x02, (byte) 0x04, (byte) 0x08
+    };
+
     // DES permutation table signature (first 4 bytes)
     private static final byte[] DES_SIGNATURE = {
-        (byte) 0x30, (byte) 0x34, (byte) 0x38, (byte) 0x3c
+            (byte) 0x30, (byte) 0x34, (byte) 0x38, (byte) 0x3c
     };
-    
+
     // SHA256 initial hash values signature
     private static final int[] SHA256_INIT = {
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
+            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a
     };
-    
+
     @Override
     public JsonNode detectCrypto(Program program) {
         ArrayNode detectedAlgorithms = mapper.createArrayNode();
-        
+
         if (program == null) {
             logger.warn("Program is null, skipping crypto detection");
             return detectedAlgorithms;
         }
-        
+
         try {
             logger.info("Starting crypto detection for program: {}", program.getName());
             Memory memory = program.getMemory();
-            
+
             // Detect AES
             detectAES(memory, detectedAlgorithms);
-            
+
             // Detect DES
             detectDES(memory, detectedAlgorithms);
-            
+
             // Detect SHA256
             detectSHA256(memory, detectedAlgorithms);
-            
+
             logger.info("Crypto detection completed. Found {} algorithms", detectedAlgorithms.size());
             return detectedAlgorithms;
         } catch (Exception e) {
@@ -66,7 +72,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
             return detectedAlgorithms;
         }
     }
-    
+
     /**
      * Detect AES algorithm by finding S-box patterns in memory.
      */
@@ -74,7 +80,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
         try {
             AddressSet initializedMemory = memory.getInitializedAddresses();
             int matchCount = 0;
-            
+
             for (Address addr : initializedMemory.getAddresses(true)) {
                 if (matchesAESSBox(memory, addr)) {
                     matchCount++;
@@ -84,11 +90,11 @@ public class CryptoDetectorImpl implements CryptoDetector {
                         aes.put("confidence", 0.95);
                         aes.put("type", "Symmetric");
                         aes.put("key_size", "128/192/256");
-                        
+
                         ArrayNode locations = mapper.createArrayNode();
                         locations.add(addr.toString());
                         aes.set("locations", locations);
-                        
+
                         results.add(aes);
                         logger.debug("Detected AES at {}", addr);
                         return;
@@ -99,14 +105,14 @@ public class CryptoDetectorImpl implements CryptoDetector {
             logger.debug("AES detection error: {}", e.getMessage());
         }
     }
-    
+
     /**
      * Detect DES algorithm by finding permutation table patterns.
      */
     private void detectDES(Memory memory, ArrayNode results) {
         try {
             AddressSet initializedMemory = memory.getInitializedAddresses();
-            
+
             for (Address addr : initializedMemory.getAddresses(true)) {
                 if (matchesDESPattern(memory, addr)) {
                     ObjectNode des = mapper.createObjectNode();
@@ -114,11 +120,11 @@ public class CryptoDetectorImpl implements CryptoDetector {
                     des.put("confidence", 0.85);
                     des.put("type", "Symmetric");
                     des.put("key_size", "56");
-                    
+
                     ArrayNode locations = mapper.createArrayNode();
                     locations.add(addr.toString());
                     des.set("locations", locations);
-                    
+
                     results.add(des);
                     logger.debug("Detected DES at {}", addr);
                     return;
@@ -128,14 +134,14 @@ public class CryptoDetectorImpl implements CryptoDetector {
             logger.debug("DES detection error: {}", e.getMessage());
         }
     }
-    
+
     /**
      * Detect SHA256 by finding initial constant patterns.
      */
     private void detectSHA256(Memory memory, ArrayNode results) {
         try {
             AddressSet initializedMemory = memory.getInitializedAddresses();
-            
+
             for (Address addr : initializedMemory.getAddresses(true)) {
                 if (matchesSHA256Constants(memory, addr)) {
                     ObjectNode sha256 = mapper.createObjectNode();
@@ -143,11 +149,11 @@ public class CryptoDetectorImpl implements CryptoDetector {
                     sha256.put("confidence", 0.90);
                     sha256.put("type", "Hash");
                     sha256.put("output_size", "256");
-                    
+
                     ArrayNode locations = mapper.createArrayNode();
                     locations.add(addr.toString());
                     sha256.set("locations", locations);
-                    
+
                     results.add(sha256);
                     logger.debug("Detected SHA256 at {}", addr);
                     return;
@@ -157,7 +163,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
             logger.debug("SHA256 detection error: {}", e.getMessage());
         }
     }
-    
+
     /**
      * Check if memory at address matches AES S-box pattern.
      */
@@ -175,7 +181,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
             return false;
         }
     }
-    
+
     /**
      * Check if memory at address matches DES pattern.
      */
@@ -193,7 +199,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
             return false;
         }
     }
-    
+
     /**
      * Check if memory at address matches SHA256 initial values.
      */
@@ -205,13 +211,13 @@ public class CryptoDetectorImpl implements CryptoDetector {
             return false;
         }
     }
-    
+
     @Override
     public boolean isCryptoPattern(byte[] bytes) {
         if (bytes == null || bytes.length < 4) {
             return false;
         }
-        
+
         // Simple pattern matching for crypto constants
         for (int i = 0; i <= bytes.length - 4; i++) {
             boolean matches = true;
@@ -225,7 +231,7 @@ public class CryptoDetectorImpl implements CryptoDetector {
                 return true;
             }
         }
-        
+
         return false;
     }
 }

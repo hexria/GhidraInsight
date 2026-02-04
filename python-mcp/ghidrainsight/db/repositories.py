@@ -77,7 +77,7 @@ class VulnerabilityRepository:
     def create(self, analysis_id: int, vuln_type: str, severity: str,
                cvss_score: Optional[int] = None, description: Optional[str] = None,
                location: Optional[str] = None, confidence: Optional[int] = None,
-               metadata: Optional[dict] = None) -> Vulnerability:
+               extra_data: Optional[dict] = None) -> Vulnerability:
         """Create a new vulnerability record."""
         vulnerability = Vulnerability(
             analysis_id=analysis_id,
@@ -87,7 +87,7 @@ class VulnerabilityRepository:
             description=description,
             location=location,
             confidence=confidence,
-            metadata=metadata
+            extra_data=extra_data
         )
         self.db.add(vulnerability)
         self.db.commit()
@@ -109,6 +109,12 @@ class CacheRepository:
         """Get cached data by key."""
         cache_entry = self.db.query(AnalysisCache).filter(AnalysisCache.cache_key == cache_key).first()
         if cache_entry:
+            # Check if cache entry has expired
+            if cache_entry.expires_at and cache_entry.expires_at < datetime.utcnow():
+                # Delete expired entry
+                self.db.delete(cache_entry)
+                self.db.commit()
+                return None
             return cache_entry.data
         return None
 

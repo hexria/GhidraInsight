@@ -439,7 +439,7 @@ class LLMIntegration:
     def _load_llm_config(self) -> Optional[LLMConfig]:
         """Load LLM configuration from environment and config"""
         # Check for Anthropic/Claude API key
-        anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+        anthropic_key = self.config.anthropic_api_key
         if anthropic_key:
             return LLMConfig(
                 provider=LLMProvider.ANTHROPIC,
@@ -449,7 +449,7 @@ class LLMIntegration:
             )
 
         # Check for Google/Gemini API key
-        google_key = os.environ.get('GOOGLE_API_KEY')
+        google_key = self.config.google_api_key
         if google_key:
             return LLMConfig(
                 provider=LLMProvider.GOOGLE,
@@ -459,7 +459,7 @@ class LLMIntegration:
             )
 
         # Check for GitHub token (preferred for free tier)
-        github_token = os.environ.get('GITHUB_TOKEN')
+        github_token = self.config.github_token
         if github_token:
             return LLMConfig(
                 provider=LLMProvider.GITHUB,
@@ -470,7 +470,7 @@ class LLMIntegration:
             )
 
         # Check for OpenAI API key
-        openai_key = os.environ.get('OPENAI_API_KEY')
+        openai_key = self.config.openai_api_key
         if openai_key:
             return LLMConfig(
                 provider=LLMProvider.OPENAI,
